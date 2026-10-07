@@ -9,7 +9,7 @@ import { fixture, jsonResponse, routeFetch, HOSTS } from './helpers.js';
 const KEY = 'TEST-NVD-KEY-do-not-leak-9f3a1c';
 const okSummary = async () => ({ what: 'w', worry: 'x', action: 'y', source: 'template', model: null, llm: 'disabled' });
 
-function setup({ nvd, kev, epss, summarize, limiter, nvdBudget, ...rest } = {}) {
+function setup({ nvd, kev, epss, summarize, limiter, lookupLimiter, nvdBudget, ...rest } = {}) {
   const logs = [];
   const fetchImpl = routeFetch({
     [HOSTS.nvd]: nvd ?? (() => jsonResponse(fixture('nvd-log4shell.json'))),
@@ -21,6 +21,7 @@ function setup({ nvd, kev, epss, summarize, limiter, nvdBudget, ...rest } = {}) 
     nvdApiKey: KEY,
     cache: new TtlCache(),
     limiter: limiter ?? new RateLimiter({ limit: 100, windowMs: 60_000 }),
+    lookupLimiter: lookupLimiter ?? new RateLimiter({ limit: 100, windowMs: 60_000 }),
     nvdBudget: nvdBudget ?? new RateLimiter({ limit: 100, windowMs: 30_000 }),
     getKevIndex: createKevLoader({ fetchImpl, minEntries: 1 }),
     summarize: summarize ?? okSummary,
@@ -212,6 +213,29 @@ test('429: per-IP rate limit, evaluated before any work, with Retry-After', asyn
 
   const invalid = await get('?id=garbage', ip);
   assert.equal(invalid.status, 429, 'even invalid requests count against the limit');
+});
+
+test('429: new (uncached) lookups have their own tighter per-client limit; cached answers stay free', async () => {
+  const ids = ['CVE-2099-0011', 'CVE-2099-0012', 'CVE-2099-0013'];
+  const nvd = (url) => jsonResponse(nvdRecordWith(url.searchParams.get('cveId'), { stripKev: true }));
+  const { get, fetchImpl } = setup({ nvd, epss: () => jsonResponse(fixture('epss-none.json')), lookupLimiter: new RateLimiter({ limit: 2, windowMs: 60_000 }) });
+  const ip = { 'x-real-ip': '203.0.113.20' };
+  assert.equal((await get(`?id=${ids[0]}`, ip)).status, 200);
+  assert.equal((await get(`?id=${ids[1]}`, ip)).status, 200);
+  const third = await get(`?id=${ids[2]}`, ip);
+  assert.equal(third.status, 429, 'the third NEW lookup in the window is refused');
+  assert.ok(third.headers.get('retry-after'));
+  assert.equal(fetchImpl.callsTo(HOSTS.nvd).length, 2, 'the refused lookup never reached NVD');
+  assert.equal((await get(`?id=${ids[0]}`, ip)).status, 200, 'an answer that is already cached is still served');
+  assert.equal((await get(`?id=${ids[2]}`, { 'x-real-ip': '203.0.113.21' })).status, 200, 'another client is unaffected');
+});
+
+test('unknown query parameters are rejected, so one CVE cannot be requested under endless different URLs', async () => {
+  const { get, fetchImpl } = setup();
+  for (const qs of ['?id=CVE-2021-44228&x=1', '?id=CVE-2021-44228&cachebust=abc', '?x=1&id=CVE-2021-44228']) {
+    assert.equal((await get(qs)).status, 400, qs);
+  }
+  assert.equal(fetchImpl.calls.length, 0);
 });
 
 test('429 "busy": when the shared NVD budget is used up we do not call NVD at all', async () => {

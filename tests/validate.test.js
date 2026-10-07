@@ -64,7 +64,10 @@ test('rejects very long input quickly (length is checked before the regex)', () 
 test('readIdParam accepts exactly one id parameter', () => {
   const read = (qs) => readIdParam(new URL(`https://example.com/api/cve${qs}`));
   assert.equal(read('?id=CVE-2021-44228'), 'CVE-2021-44228');
-  assert.equal(read('?id=cve-2021-44228&other=1'), 'CVE-2021-44228');
+  assert.equal(read('?id=cve-2021-44228'), 'CVE-2021-44228');
+  assert.equal(read('?id=CVE-2021-44228&other=1'), null, 'unknown parameters are rejected (no cache busting)');
+  assert.equal(read('?id=CVE-2021-44228&'), 'CVE-2021-44228', 'a trailing & adds no parameter');
+  assert.equal(read('?other=1'), null);
   assert.equal(read(''), null);
   assert.equal(read('?id='), null);
   assert.equal(read('?ID=CVE-2021-44228'), null, 'parameter names are case-sensitive');

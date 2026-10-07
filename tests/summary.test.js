@@ -125,7 +125,7 @@ test('parseModelOutput rejects links, markup and markdown links (a hijacked mode
 });
 
 test('parseModelOutput with grounding: version numbers must come from the facts (anti-hallucination / anti-injection)', () => {
-  const facts = JSON.stringify({ first_unaffected_versions: [{ versions: ['2.15.0'] }], severity: 'critical (CVSS v3.1, score 10.0)' });
+  const facts = JSON.stringify({ first_unaffected_versions: [{ versions: ['2.15.0'] }], severity: 'critical (CVSS 3.1, score 10.0)' });
   const reply = (action) => JSON.stringify({ what: 'A flaw lets attackers run code remotely.', worry: 'Yes, attackers exploit it right now.', action });
   assert.ok(parseModelOutput(reply('Upgrade to version 2.15.0 or later today.'), facts), 'a version from the facts is fine');
   assert.ok(parseModelOutput(reply('The CVSS 3.1 score is 10.0 so act now.'), facts));
@@ -134,6 +134,34 @@ test('parseModelOutput with grounding: version numbers must come from the facts 
   assert.equal(parseModelOutput(reply('Upgrade to version 2.16.0 or later today.'), facts), null, 'invented version is rejected');
   assert.equal(parseModelOutput(reply('Install build 9.9.9 from the vendor page.'), facts), null);
   assert.ok(parseModelOutput(reply('Upgrade to version 2.16.0 or later today.')), 'without grounding text the check is skipped');
+});
+
+test('grounding compares WHOLE version tokens: a prefix or substring of a real version does not pass', () => {
+  const facts = JSON.stringify({ versions: ['>= 2.13.0 and < 2.15.0'], severity: 'critical (CVSS 3.1, score 10.0)' });
+  const reply = (action) => JSON.stringify({ what: 'A flaw lets attackers run code remotely.', worry: 'Yes, attackers exploit it right now.', action });
+  assert.ok(parseModelOutput(reply('Update anything below 2.15.0 as soon as you can.'), facts));
+  for (const invented of ['2.1', '2.15', '15.0', '13.0', '0.1', '2.15.0.1']) {
+    assert.equal(parseModelOutput(reply(`Upgrade to version ${invented} right away please.`), facts), null, invented);
+  }
+});
+
+test('grounding: a domain or file name the facts never mentioned is rejected, even without http://', () => {
+  const facts = JSON.stringify({ affected_products: [{ product: 'microsoft asp.net core' }], official_description: 'A flaw in log4j-core.jar and ASP.NET.' });
+  const reply = (action) => JSON.stringify({ what: 'A flaw lets attackers run code remotely.', worry: 'Yes, attackers exploit it right now.', action });
+  assert.ok(parseModelOutput(reply('Update ASP.NET and replace log4j-core.jar promptly.'), facts), 'names that ARE in the facts are fine');
+  assert.ok(parseModelOutput(reply('Check your systems, e.g. servers, i.e. anything exposed.'), facts), 'ordinary abbreviations are not domains');
+  for (const planted of ['Get the fix from evil-patch.com today, it is safe.', 'Download and run setup.exe from the vendor mirror.', 'Email your password to help@attacker.io for a fix.', 'Go to EVIL-PATCH.COM and install the update now.']) {
+    assert.equal(parseModelOutput(reply(planted), facts), null, planted);
+  }
+});
+
+test('look-alike Unicode cannot hide a link or a tag from the filter (NFKC normalisation first)', () => {
+  const field = 'This is a perfectly fine sentence.';
+  const reply = (action) => JSON.stringify({ what: field, worry: field, action });
+  for (const hidden of ['Visit ｈｔｔｐ://evil.example now for the fix.', 'Open ｗｗｗ．evil．example for the patch today.', 'Use ＜script＞alert(1)＜/script＞ to apply it.', 'Go to hxxp\u200B://evil then h\u200Bttps://evil.example now.']) {
+    assert.equal(parseModelOutput(reply(hidden)), null, hidden);
+  }
+  assert.equal(parseModelOutput(reply('Ｕｐｄａｔｅ the software today please.')).action, 'Update the software today please.', 'harmless fullwidth text is simply folded to plain letters');
 });
 
 test('parseModelOutput turns look-alike hyphens and spaces into plain ASCII', () => {

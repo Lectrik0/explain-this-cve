@@ -38,6 +38,7 @@ test('CSP: deny by default, scripts and styles only from this site, no unsafe-* 
   assert.deepEqual(csp['frame-ancestors'], ["'none'"]);
   assert.deepEqual(csp['frame-src'], ["'none'"]);
   assert.deepEqual(csp['require-trusted-types-for'], ["'script'"]);
+  assert.deepEqual(csp['trusted-types'], ["'none'"], 'no Trusted Types policy may be created, so there is no approved way to write HTML at all');
   const everything = globalHeaders['Content-Security-Policy'];
   assert.ok(!/unsafe-inline|unsafe-eval|unsafe-hashes|\*|https?:|data:|blob:/.test(everything), 'no wildcard, remote, data: or unsafe sources');
 });

@@ -20,7 +20,8 @@ log('startup', { nvdKeyConfigured: Boolean(config.nvdApiKey), aiSummaryConfigure
 const app = createApp({
   nvdApiKey: config.nvdApiKey,
   cache: new TtlCache({ maxEntries: 200 }),
-  limiter: new RateLimiter({ limit: 20, windowMs: 60_000 }), // per client IP
+  limiter: new RateLimiter({ limit: 20, windowMs: 60_000 }), // per client IP: every request
+  lookupLimiter: new RateLimiter({ limit: 6, windowMs: 60_000 }), // per client IP: lookups that are not cached yet
   // NVD allows 5 requests / 30 s without a key and 50 with one. Stay just under, for ALL visitors together.
   nvdBudget: new RateLimiter({ limit: config.nvdApiKey ? 45 : 4, windowMs: 30_000 }),
   getKevIndex: createKevLoader(),

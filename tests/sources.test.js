@@ -133,6 +133,23 @@ test('KEV loader serves a stale copy when a refresh fails, but not forever', asy
   await assert.rejects(load(), { kind: 'http' });
 });
 
+test('KEV loader backs off after a failure instead of re-downloading (and timing out) on every request', async () => {
+  let clock = 0;
+  let healthy = false;
+  const fetchImpl = routeFetch({ [HOSTS.kev]: () => (healthy ? jsonResponse(fixture('kev-sample.json')) : new Response('', { status: 503 })) });
+  const load = createKevLoader({ fetchImpl, now: () => clock, minEntries: 1, retryAfterFailureMs: 60_000 });
+  await assert.rejects(load(), { kind: 'http' });
+  await assert.rejects(load(), { kind: 'http' });
+  await assert.rejects(load(), { kind: 'http' });
+  assert.equal(fetchImpl.callsTo(HOSTS.kev).length, 1, 'only one attempt during the cool-down');
+  healthy = true;
+  clock = 30_000;
+  await assert.rejects(load(), { kind: 'http' }, 'still cooling down');
+  clock = 61_000;
+  assert.ok((await load()).has('CVE-2021-44228'), 'tries again after the cool-down and recovers');
+  assert.equal(fetchImpl.callsTo(HOSTS.kev).length, 2);
+});
+
 test('KEV loader treats an empty or tiny feed as BROKEN, never as "nothing is exploited"', async () => {
   const empty = routeFetch({ [HOSTS.kev]: () => jsonResponse({ vulnerabilities: [] }) });
   await assert.rejects(createKevLoader({ fetchImpl: empty })(), { kind: 'bad_json' });
