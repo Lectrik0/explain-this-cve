@@ -6,7 +6,9 @@
 //   1. Nothing from the server is ever turned into HTML. Text goes in with textContent / text nodes only
 //      (never innerHTML, outerHTML, insertAdjacentHTML, document.write, eval). Even if the server were
 //      compromised or sent "<img onerror=...>", it would be displayed as harmless characters.
-//   2. Anything used as a CSS class comes from a fixed lookup table, never from the data itself.
+//      The Content Security Policy also enables Trusted Types, which makes the browser refuse those
+//      dangerous sinks outright.
+//   2. Anything used as a CSS class comes from a fixed lookup table or a literal, never from the data itself.
 //   3. Links are only created from http(s) URLs (checked again here, on top of the server's check) and
 //      always carry rel="noopener noreferrer nofollow".
 //   4. This client-side check of the CVE ID is only for convenience. The real validation is on the server.
@@ -107,11 +109,24 @@
 
   const isAnalyst = () => state.view === 'analyst';
 
-  // ------------------------------------------------------------------ building blocks
+  // ------------------------------------------------------------------ building blocks: comic panels
 
-  function section(number, title, id, ...children) {
-    const heading = el('h2', { attrs: { id: `h-${id}` } }, el('span', { class: 'num', text: number, attrs: { 'aria-hidden': 'true' } }), title);
-    return el('section', { class: 'card', attrs: { 'aria-labelledby': `h-${id}` } }, heading, ...children);
+  // Panels rotate through three cut-corner shapes so the page feels hand-laid (classes are literals).
+  const CUTS = ['cut-a', 'cut-b', 'cut-c'];
+  let panelCount = 0;
+
+  /** A framed panel: outer .frame (the outline) around an inner .in (the paper). */
+  function panel(span, labelledBy, ...children) {
+    const cut = CUTS[panelCount % CUTS.length];
+    panelCount += 1;
+    const attrs = labelledBy ? { 'aria-labelledby': labelledBy } : {};
+    return el('section', { class: `frame ${cut} span-${span}`, attrs }, el('div', { class: 'in' }, ...children));
+  }
+
+  /** A numbered chapter panel with a boxed caption and a title. */
+  function chapter(number, title, id, span, ...children) {
+    const head = el('div', { class: 'panel-head' }, el('span', { class: 'chap', text: `Chapter ${number}` }), el('h2', { text: title, attrs: { id: `h-${id}` } }));
+    return panel(span, `h-${id}`, head, ...children);
   }
 
   const chip = (label, extra = '') => el('li', { class: `chip ${extra}`.trim(), text: label });
@@ -126,7 +141,7 @@
     return dl;
   }
 
-  // ------------------------------------------------------------------ section 1: header
+  // ------------------------------------------------------------------ chapter 1: header
 
   function renderHeader(d) {
     const published = formatDate(d.published);
@@ -138,22 +153,22 @@
     if (isAnalyst() && status) meta.append(el('span', { text: `NVD status: ${status}` }));
     const nvdLink = safeHttpUrl(d.nvdUrl);
     if (nvdLink && new URL(nvdLink).hostname === 'nvd.nist.gov') meta.append(externalLink(nvdLink, 'View on NVD'));
-    return el('section', { class: 'card head', attrs: { 'aria-labelledby': 'h-title' } },
-      el('p', { class: 'id-row' }, el('span', { class: 'num', text: 1, attrs: { 'aria-hidden': 'true' } }), el('span', { class: 'cve-id', text: str(d.id, 30) })),
+    const top = el('div', { class: 'panel-head head' }, el('span', { class: 'chap', text: 'Chapter 1' }), el('span', { class: 'cve-id', text: str(d.id, 30) }));
+    return panel(6, 'h-title',
+      top,
       el('h2', { class: 'brief-title', text: str(d.title, 200), attrs: { id: 'h-title' } }),
       d.titleSource === 'products' ? note('This CVE has no official title; the title above is built from the affected product.') : null,
       meta);
   }
 
-  // ------------------------------------------------------------------ section 2: severity
+  // ------------------------------------------------------------------ chapter 2: severity
 
   function renderSeverity(d) {
     const primary = d.cvss && d.cvss.primary;
     const info = primary && severityInfo(primary.severity);
     const score = primary && num(primary.score);
     if (!info || score === null) {
-      return section(2, 'Severity', 'severity',
-        note('No severity score is published yet. NVD may not have analysed this CVE so far.'));
+      return chapter(2, 'Severity', 'severity', 3, note('No severity score is published yet. NVD may not have analysed this CVE so far.'));
     }
     const version = /^\d\.\d$/.test(str(primary.version, 5)) ? primary.version : '?';
     const provider = primary.provider === 'NVD' ? 'scored by NVD (NIST)' : 'scored by the vendor or another source';
@@ -174,26 +189,26 @@
         for (const o of others) {
           const oi = severityInfo(o && o.severity);
           const os = num(o && o.score);
-          if (oi && os !== null) list.append(chip(`CVSS ${str(o.version, 5)}: ${os.toFixed(1)} ${oi.label}${o.provider === 'NVD' ? ' (NVD)' : ' (other source)'}`));
+          if (oi && os !== null) list.append(chip(`CVSS ${str(o.version, 5)}: ${os.toFixed(1)} ${oi.label}${o.provider === 'NVD' ? ' (NVD)' : ' (other source)'}`, 'c-teal'));
         }
         parts.push(el('p', { class: 'label', text: 'Other scores' }), list);
       }
       const weaknesses = arr(d.weaknesses);
       if (weaknesses.length) {
         const list = el('ul', { class: 'chips' });
-        for (const w of weaknesses) list.append(chip(`${str(w && w.id, 30)}${w && w.name ? ` · ${str(w.name, 80)}` : ''}`));
+        for (const w of weaknesses) list.append(chip(`${str(w && w.id, 30)}${w && w.name ? ` · ${str(w.name, 80)}` : ''}`, 'c-purple'));
         parts.push(el('p', { class: 'label', text: 'Weakness type (CWE)' }), list);
       }
     }
-    return section(2, 'Severity', 'severity', ...parts);
+    return chapter(2, 'Severity', 'severity', 3, ...parts);
   }
 
-  // ------------------------------------------------------------------ section 3: exploitation
+  // ------------------------------------------------------------------ chapter 3: exploitation
 
   function renderKev(kev) {
     const status = kev && kev.status;
     if (status === 'listed') {
-      const rows = [el('p', {}, el('span', { class: 'pill danger', text: 'Known exploited' }), ' CISA confirms this vulnerability is being used in real attacks.')];
+      const rows = [el('p', {}, el('span', { class: 'tag-status danger', text: 'Known exploited' }), ' CISA confirms this vulnerability is being used in real attacks.')];
       const facts = [];
       const added = formatDate(kev.dateAdded);
       const due = formatDate(kev.dueDate);
@@ -205,9 +220,9 @@
       return rows;
     }
     if (status === 'not_listed') {
-      return [el('p', {}, el('span', { class: 'pill ok', text: 'Not in CISA KEV' }), ' Not on CISA\'s list of known exploited vulnerabilities. That list only holds confirmed cases, so this is not proof of safety.')];
+      return [el('p', {}, el('span', { class: 'tag-status ok', text: 'Not in CISA KEV' }), ' Not on CISA\'s list of known exploited vulnerabilities. That list only holds confirmed cases, so this is not proof of safety.')];
     }
-    return [el('p', {}, el('span', { class: 'pill warn', text: 'Unknown' }), ' The CISA list could not be checked right now. This is NOT a sign the vulnerability is safe. Try again shortly.')];
+    return [el('p', {}, el('span', { class: 'tag-status warn', text: 'Unknown' }), ' The CISA list could not be checked right now. This is NOT a sign the vulnerability is safe. Try again shortly.')];
   }
 
   function renderEpss(epss) {
@@ -235,10 +250,10 @@
 
   function renderExploitation(d) {
     const e = d.exploitation || {};
-    return section(3, 'Exploitation status', 'exploitation', ...renderKev(e.kev), el('hr'), ...renderEpss(e.epss));
+    return chapter(3, 'Exploitation status', 'exploitation', 3, ...renderKev(e.kev), el('hr'), ...renderEpss(e.epss));
   }
 
-  // ------------------------------------------------------------------ section 4: summary
+  // ------------------------------------------------------------------ chapter 4: summary
 
   function renderSummary(d) {
     const s = d.summary;
@@ -248,7 +263,7 @@
     } else {
       const isAi = s.source === 'ai';
       parts.push(el('p', { class: 'summary-tag' },
-        el('span', { class: `pill ${isAi ? 'ai' : 'neutral'}`, text: isAi ? 'AI-generated' : 'Automatic summary' }),
+        el('span', { class: `tag-status ${isAi ? 'ai' : 'neutral'}`, text: isAi ? 'AI-generated' : 'Automatic summary' }),
         el('span', { class: 'muted', text: isAi ? ` by ${str(s.model, 100)}. AI can make mistakes: verify before acting.` : s.llm === 'unavailable' ? ' The AI summary is unavailable right now, so a template summary is shown.' : ' Built from the data below by fixed rules (no AI configured).' })));
       const blocks = [['What is it?', s.what], ['Should I worry?', s.worry], ['What should I do?', s.action]];
       for (const [question, answer] of blocks) {
@@ -258,16 +273,16 @@
     if (isAnalyst() && d.description) {
       parts.push(el('h3', { class: 'desc-title', text: 'Official description (NVD)' }), el('p', { class: 'description', text: str(d.description, 4000) }));
     }
-    return section(4, 'Plain-language summary', 'summary', ...parts);
+    return chapter(4, 'Plain-language summary', 'summary', 6, ...parts);
   }
 
-  // ------------------------------------------------------------------ section 5: affected products
+  // ------------------------------------------------------------------ chapter 5: affected products
 
   function renderAffected(d) {
     const a = d.affected || {};
     const products = arr(a.products);
     if (!products.length) {
-      return section(5, 'Affected products and versions', 'affected', note('No affected-product data is published yet. Check the vendor advisory in the references.'));
+      return chapter(5, 'Affected products and versions', 'affected', 3, note('No affected-product data is published yet. Check the vendor advisory in the references.'));
     }
     const maxProducts = isAnalyst() ? products.length : 5;
     const maxVersions = isAnalyst() ? 12 : 3;
@@ -275,9 +290,9 @@
     for (const p of products.slice(0, maxProducts)) {
       const versions = arr(p && p.versions);
       const chips = el('ul', { class: 'chips' });
-      for (const v of versions.slice(0, maxVersions)) chips.append(chip(str(v, 80), 'mono'));
+      for (const v of versions.slice(0, maxVersions)) chips.append(chip(str(v, 80), 'mono c-blue'));
       const hidden = Math.max(0, versions.length - maxVersions) + (num(p && p.moreVersions) || 0);
-      if (hidden > 0) chips.append(chip(`+${hidden} more`, 'muted-chip'));
+      if (hidden > 0) chips.append(chip(`+${hidden} more`, 'c-muted'));
       list.append(el('li', {}, el('strong', { text: `${str(p && p.vendor, 80)} ${str(p && p.product, 80)}`.trim() }), chips));
     }
     const total = num(a.total) || products.length;
@@ -286,10 +301,10 @@
     if (total > shown) parts.push(note(`+${total - shown} more affected products${isAnalyst() ? ' are not shown here. See the full record on NVD.' : '. Switch to the Analyst view for more detail.'}`));
     const sources = { 'nvd-cpe': 'Source: NVD product data (CPE).', cna: 'Source: the vendor\'s own report (no NVD product data yet).' };
     if (Object.hasOwn(sources, a.source)) parts.push(note(sources[a.source]));
-    return section(5, 'Affected products and versions', 'affected', ...parts);
+    return chapter(5, 'Affected products and versions', 'affected', 3, ...parts);
   }
 
-  // ------------------------------------------------------------------ section 6: fix / mitigation
+  // ------------------------------------------------------------------ chapter 6: fix / mitigation
 
   function referenceLink(item) {
     const href = safeHttpUrl(item && item.url);
@@ -319,10 +334,10 @@
     if (items.length) parts.push(el('p', { class: 'label', text: 'Patches and vendor advisories' }), el('ul', { class: 'links' }, ...items));
     if (!parts.length) parts.push(note('No patch or advisory is listed in NVD yet. Check the vendor\'s website, and consider the mitigations in the references.'));
     parts.push(el('p', { class: 'verify', text: 'Always verify with the official vendor advisory before changing production systems.' }));
-    return section(6, 'Fix and mitigation', 'fix', ...parts);
+    return chapter(6, 'Fix and mitigation', 'fix', 3, ...parts);
   }
 
-  // ------------------------------------------------------------------ section 7: references
+  // ------------------------------------------------------------------ chapter 7: references
 
   function renderReferences(d) {
     const refs = d.references || {};
@@ -333,29 +348,32 @@
     else parts.push(note('No references are listed.'));
     const total = num(refs.total) || all.length;
     if (total > shown.length) parts.push(note(`${total - shown.length} more references${isAnalyst() ? ' are on the full NVD record.' : '. Switch to the Analyst view to see more.'}`));
-    return section(7, 'References', 'references', ...parts);
+    return chapter(7, 'References', 'references', 6, ...parts);
   }
 
-  // ------------------------------------------------------------------ footer note: what data was available
+  // ------------------------------------------------------------------ what data was available
 
   function renderDataNote(d) {
     const s = d.sources || {};
     const ok = (v) => v === 'ok';
     const generated = typeof d.generatedAt === 'string' ? d.generatedAt.slice(0, 16).replace('T', ' ') : '';
-    const mark = (name, state, good) => el('li', { class: good ? 'good' : 'bad', text: `${good ? '✓' : '!'} ${name}: ${state}` });
+    const mark = (name, status, good) => el('li', { class: good ? 'good' : 'bad', text: `${good ? '✓' : '!'} ${name}: ${status}` });
     const list = el('ul', { class: 'source-status' },
       mark('NVD', ok(s.nvd) ? 'ok' : 'problem', ok(s.nvd)),
       mark('CISA KEV', ok(s.kev) ? 'ok' : 'unavailable', ok(s.kev)),
       mark('EPSS', ok(s.epss) ? 'ok' : s.epss === 'not_scored' ? 'not scored yet' : 'unavailable', ok(s.epss) || s.epss === 'not_scored'),
       mark('Summary', s.summary === 'ai' ? 'AI' : s.summary === 'template' ? 'template' : 'none', s.summary === 'ai' || s.summary === 'template'));
-    return el('div', { class: 'data-note' }, list, generated ? el('p', { class: 'muted', text: `Generated ${generated} UTC. Results can be cached for up to an hour.` }) : null);
+    return el('div', { class: 'data-note' }, list, generated ? el('p', { text: `Generated ${generated} UTC. Results can be cached for up to an hour.` }) : null);
   }
 
   // ------------------------------------------------------------------ page-level rendering
 
-  function render() {
+  /** `animate` is true only for a fresh lookup: panels settle in once. Switching views never re-animates. */
+  function render(animate) {
     const d = state.data;
     if (!d) return;
+    panelCount = 0;
+    bodyEl.classList.toggle('animate-in', Boolean(animate));
     bodyEl.replaceChildren(renderHeader(d), renderSeverity(d), renderExploitation(d), renderSummary(d), renderAffected(d), renderFix(d), renderReferences(d), renderDataNote(d));
     resultEl.hidden = false;
   }
@@ -364,7 +382,7 @@
     button.disabled = busy;
     input.setAttribute('aria-busy', String(busy));
     statusEl.hidden = !busy;
-    if (busy) statusEl.replaceChildren(el('span', { class: 'spinner', attrs: { 'aria-hidden': 'true' } }), ` Looking up ${id}…`);
+    if (busy) statusEl.replaceChildren(el('span', { class: 'loader', attrs: { 'aria-hidden': 'true' } }, el('i'), el('i'), el('i')), `Looking up ${id}…`);
     else statusEl.replaceChildren();
   }
 
@@ -428,7 +446,7 @@
         return;
       }
       state.data = body;
-      render();
+      render(true);
       announceEl.textContent = `Brief ready for ${body.id}.`;
       resultEl.focus({ preventScroll: true });
       resultEl.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
@@ -443,6 +461,34 @@
       if (requestId === state.requestId) setBusy(false);
     }
   }
+
+  // ------------------------------------------------------------------ day / night toggle
+
+  const themeButton = $('theme-toggle');
+  const themeLabel = $('theme-label');
+  const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+  function effectiveTheme() {
+    const chosen = document.documentElement.getAttribute('data-theme');
+    if (chosen === 'light' || chosen === 'dark') return chosen;
+    return darkQuery.matches ? 'dark' : 'light';
+  }
+
+  function paintThemeButton() {
+    const dark = effectiveTheme() === 'dark';
+    themeLabel.textContent = dark ? 'Day mode' : 'Night mode';
+    themeButton.setAttribute('aria-label', dark ? 'Switch to day mode' : 'Switch to night mode');
+  }
+
+  themeButton.addEventListener('click', () => {
+    const next = effectiveTheme() === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try {
+      localStorage.setItem('theme', next);
+    } catch { /* ignore */ }
+    paintThemeButton();
+  });
+  darkQuery.addEventListener('change', paintThemeButton);
 
   // ------------------------------------------------------------------ wiring
 
@@ -474,12 +520,13 @@
       try {
         localStorage.setItem('view', state.view);
       } catch { /* ignore */ }
-      render();
+      render(false);
     });
   }
 
   $('print-button').addEventListener('click', () => window.print());
 
+  paintThemeButton();
   loadViewPreference();
   const initial = new URLSearchParams(location.search).get('id');
   if (initial && CVE_PATTERN.test(initial.trim().toUpperCase())) lookup(initial);
