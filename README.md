@@ -128,13 +128,13 @@ Everything from NVD, CISA, EPSS and the LLM is treated as hostile. Four layers, 
 1. The server cleans text (control and direction-changing characters removed), caps every length, allow-lists tags and statuses, and keeps only http and https links.
 2. The page never builds HTML from data. It uses `textContent` and text nodes. A test fails if `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval` or inline styles appear in the browser code.
 3. CSS class names come from fixed tables, not from data. Links are re-checked in the browser and always get `rel="noopener noreferrer nofollow"`.
-4. The Content Security Policy is `default-src 'none'` with scripts, styles, fonts and connections limited to this site, no inline anything, and Trusted Types required. In a browser that enforces Trusted Types, a stray `innerHTML` write throws an error. I checked that in Chromium.
+4. The Content Security Policy is `default-src 'none'` with scripts, styles, fonts and connections limited to this site, no inline anything, and Trusted Types required with no policy allowed (`trusted-types 'none'`). In a browser that enforces Trusted Types, a stray `innerHTML` write throws an error, and so does creating a policy to get around it. I checked both in Chromium.
 
 The XSS drill runs the real `app.js` against an API response that has an `<img onerror>` or `<script>` payload in every field, inside a small DOM stand-in that throws on any HTML write. It then checks that no unexpected element, attribute, link or class exists. I confirmed the drill works by running it against two deliberately broken copies of `app.js`: both fail.
 
 ### Input validation and SSRF
 
-The CVE ID is the only visitor input that reaches another server. It must match `^CVE-\d{4}-\d{4,10}$` after trimming, with ASCII digits only, a length check before the pattern, and exactly one `id` parameter. The three API hosts are constants and the ID is added with `URL.searchParams`, so a visitor cannot change the host or path of an outgoing request. Redirects are refused and responses are size-capped.
+The CVE ID is the only visitor input that reaches another server. It must match `^CVE-\d{4}-\d{4,10}$` after trimming, with ASCII digits only and a length check before the pattern. The request must carry exactly one query parameter, `id`. Extra parameters are rejected, otherwise `?id=X&a=1`, `?id=X&a=2` and so on would be endless different URLs for one CVE, each stored separately in the CDN cache. The three API hosts are constants and the ID is added with `URL.searchParams`, so a visitor cannot change the host or path of an outgoing request. Redirects are refused and responses are size-capped.
 
 ### Prompt injection
 
@@ -143,14 +143,15 @@ A CVE description is text written by other people, and it goes into an LLM promp
 - the model gets public facts about one CVE and nothing else: no tools, no secrets, no visitor data
 - the facts go in as JSON inside `<facts>` tags, with `<` escaped so the text cannot close the tag
 - the answer must be a small JSON object with three short strings
+- the text is normalised (NFKC) before it is checked, so look-alike characters such as fullwidth "ｈｔｔｐ://" cannot hide a link
 - each string is rejected if it contains a link, an HTML-like tag, a backtick or a markdown link
-- any version number in the answer must appear in the facts, otherwise the whole answer is dropped
+- any version number in the answer must appear in the facts as a whole token, and so must any domain-like or file-like name such as `evil-patch.com` or `setup.exe`; otherwise the whole answer is dropped
 
 A rejected answer becomes the template summary. While testing the real model I saw it turn the range ">= 2.0.1 and < 2.3.1" into "2.0.1 to 2.3.0" and invent "2.14.9". The version check caught that. The page labels AI text as AI-generated and tells the reader to verify it.
 
 ### Rate limiting and caching
 
-Each client IP gets 20 requests per minute, and all visitors together share a budget just under NVD's own limit. Finished answers are cached for an hour, and answers where a source failed for two minutes, so recovery is quick. The CISA feed is downloaded once and reused. Concurrent requests for the same CVE share one lookup. IPv6 clients are limited per /64, because one customer usually controls a whole /64.
+Each client IP gets 20 requests per minute, and a tighter 6 per minute for lookups that are not cached yet, because those are the ones that spend NVD quota and free LLM tokens. All visitors together share a budget just under NVD's own limit. If the CISA download fails, the server waits a minute before trying again, so an outage at CISA does not make every lookup wait for a timeout. Finished answers are cached for an hour, and answers where a source failed for two minutes, so recovery is quick. The CISA feed is downloaded once and reused. Concurrent requests for the same CVE share one lookup. IPv6 clients are limited per /64, because one customer usually controls a whole /64.
 
 ### Choosing which score to show
 
@@ -162,7 +163,7 @@ The visual design follows the design language of my portfolio site: comic-style 
 
 ## Tests
 
-`npm test` runs more than 130 tests with Node's built-in test runner, with no test dependencies. They use saved real API responses, so they run offline. They cover validation, the normaliser against a hostile record, each failure of each source, the rate limiter and cache, the handler's status codes, the summary and prompt injection cases, the headers and CSP, the secret scan and the XSS drill.
+`npm test` runs more than 140 tests with Node's built-in test runner, with no test dependencies. They use saved real API responses, so they run offline. They cover validation, the normaliser against a hostile record, each failure of each source, the rate limiter and cache, the handler's status codes, the summary and prompt injection cases, the headers and CSP, the secret scan and the XSS drill.
 
 ## Limitations
 
@@ -176,6 +177,8 @@ The visual design follows the design language of my portfolio site: comic-style 
 - The CSP's Trusted Types rule is enforced by Chromium browsers. Other browsers still get every other control.
 - I tested the page in one Chromium-based browser, at desktop and phone widths, in both themes. I did not test Safari or Firefox.
 - The API is public. The CORS policy only stops other websites from reading it in a browser. Anyone can call it directly, which is what the rate limits are for.
+- Several clients working together can still use up the shared NVD budget, because the per-IP limits do not add up across IPs. The result is a "busy" message, not a breach.
+- A persuaded AI model can still write a misleading sentence that has no link, version or domain in it. The checks cannot catch an opinion.
 
 ## Version 2 ideas
 
