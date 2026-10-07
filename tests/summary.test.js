@@ -143,6 +143,16 @@ test('parseModelOutput turns look-alike hyphens and spaces into plain ASCII', ()
   assert.equal(out.action, 'Update soon - today if possible.');
 });
 
+test('parseModelOutput allows comparison operators in version ranges but still rejects tag-like text', () => {
+  const field = 'This is a perfectly fine sentence.';
+  const ok = (action) => parseModelOutput(JSON.stringify({ what: field, worry: field, action }));
+  assert.ok(ok('Affected: >= 2.0.1 < 2.3.1, >=2.4.0 <2.12.2 and <= 3.0. Update soon.'));
+  assert.ok(ok('Anything below <2.15.0 is vulnerable, so please update.'));
+  for (const bad of ['Run <b>this</b> fix now please.', 'Use <a href=x>this</a> link here.', 'See <!-- comment --> for more.', 'Use <?php echo 1 ?> to apply it.', 'Open </div> and apply the fix.']) {
+    assert.equal(ok(bad), null, bad);
+  }
+});
+
 test('parseModelOutput caps field length and strips invisible characters', () => {
   const long = 'This sentence repeats. '.repeat(100);
   const out = parseModelOutput(JSON.stringify({ what: long, worry: 'Safe‮ text here ok.', action: 'Update the software today.' }));
@@ -190,7 +200,7 @@ test('PROMPT INJECTION DRILL: a malicious description + a model that obeys it =>
   assert.equal(s.source, 'template', 'fell back to the deterministic summary');
   assert.equal(s.llm, 'unavailable');
   assert.ok(!JSON.stringify(s).includes('evil.example'));
-  assert.deepEqual(logs, [{ e: 'llm_output_rejected' }], 'rejection is logged without the model text');
+  assert.deepEqual(logs, [{ e: 'llm_output_rejected', reason: 'forbidden_content' }], 'rejection is logged as a category, without the model text');
 });
 
 test('an AI answer that invents a fix version is discarded in favour of the template', async () => {

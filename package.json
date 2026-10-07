@@ -8,6 +8,7 @@
     "node": "24.x"
   },
   "scripts": {
+    "dev": "node scripts/dev.js",
     "test": "node --test",
     "live-check": "node scripts/live-check.js"
   }

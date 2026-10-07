@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Explain This CVE</title>
+  <meta name="description" content="Enter a CVE ID and get a one-page brief: how severe it is, whether attackers are exploiting it, which products are affected and what to do.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <!-- No inline scripts or styles anywhere: the Content Security Policy only allows files from this site. -->
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#result">Skip to result</a>
+
+  <main class="page">
+    <header class="hero">
+      <p class="eyebrow">Vulnerability briefing</p>
+      <h1>Explain this CVE</h1>
+      <p class="lede">Enter a CVE ID. Get a one-page brief: how bad it is, whether attackers are using it, and what to do about it.</p>
+    </header>
+
+    <section class="card search" aria-label="Look up a CVE">
+      <form id="lookup-form" novalidate>
+        <label for="cve-input">CVE ID</label>
+        <div class="input-row">
+          <input id="cve-input" name="id" type="text" maxlength="40" placeholder="CVE-2021-44228" spellcheck="false" autocapitalize="characters" autocomplete="off" aria-describedby="input-hint input-error">
+          <button id="lookup-button" type="submit" class="primary">Explain</button>
+        </div>
+        <p id="input-error" class="field-error" role="alert" hidden></p>
+        <p id="input-hint" class="hint">
+          Format: CVE-YYYY-NNNN. Try:
+          <button type="button" class="chip-button" data-example="CVE-2021-44228">Log4Shell</button>
+          <button type="button" class="chip-button" data-example="CVE-2017-0144">EternalBlue</button>
+          <button type="button" class="chip-button" data-example="CVE-2024-3094">XZ backdoor</button>
+        </p>
+      </form>
+    </section>
+
+    <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+    <div id="message" class="notice error" role="alert" hidden></div>
+    <p id="announce" class="visually-hidden" role="status" aria-live="polite"></p>
+
+    <div id="result" tabindex="-1" hidden>
+      <div class="toolbar">
+        <fieldset class="view-toggle">
+          <legend class="visually-hidden">Choose the audience for this brief</legend>
+          <label><input type="radio" name="view" value="manager" checked><span>Manager</span></label>
+          <label><input type="radio" name="view" value="analyst"><span>Analyst</span></label>
+        </fieldset>
+        <button id="print-button" type="button" class="ghost">Print / save as PDF</button>
+      </div>
+      <div id="result-body"></div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p class="disclaimer"><strong>Always verify with the official vendor advisory.</strong> This brief is an automated summary of public data and can be incomplete or out of date.</p>
+    <p>Data: <a href="https://nvd.nist.gov/" rel="noopener noreferrer">NVD</a> (NIST), <a href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog" rel="noopener noreferrer">CISA Known Exploited Vulnerabilities</a> and <a href="https://www.first.org/epss/" rel="noopener noreferrer">FIRST EPSS</a>. This product uses data from the NVD API but is not endorsed or certified by the NVD.</p>
+    <p>Summaries may be written by an AI model and can contain mistakes. Built with AI assistance as a portfolio project.</p>
+  </footer>
+</body>
+</html>

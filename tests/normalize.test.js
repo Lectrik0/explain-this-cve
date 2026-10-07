@@ -47,6 +47,15 @@ test('Log4Shell: affected products are grouped, the main product comes first, on
   assert.ok(fixedIn.length > 0, 'versionEndExcluding values become "first unaffected version"');
 });
 
+test('NVD backslash escaping in version strings is removed for display', () => {
+  const raw = { vulnerabilities: [{ cve: { id: 'CVE-2099-0004', configurations: [{ nodes: [{ cpeMatch: [
+    { vulnerable: true, criteria: 'cpe:2.3:a:cisco:finesse:*:*:*:*:*:*:*:*', versionEndExcluding: '12.6\\(1\\)' },
+  ] }] }] } }] };
+  const r = normalizeNvd(raw, 'CVE-2099-0004');
+  assert.deepEqual(r.affected.products[0].versions, ['< 12.6(1)']);
+  assert.deepEqual(r.fixedIn[0].versions, ['12.6(1)']);
+});
+
 test('the product the CNA names is listed first even when third-party products have more entries', () => {
   const cpe = (vendor, product, n) => Array.from({ length: n }, (_, i) => ({ vulnerable: true, criteria: `cpe:2.3:a:${vendor}:${product}:${i}.0:*:*:*:*:*:*:*` }));
   const raw = {
