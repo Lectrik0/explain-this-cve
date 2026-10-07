@@ -1,0 +1,13 @@
+# Secrets: real keys live ONLY in .env.local (local) or Vercel's dashboard (production).
+.env
+.env.*
+!.env.example
+
+# Vercel CLI link data (project/org IDs) and dependencies
+.vercel
+node_modules
+
+# Misc
+*.log
+.DS_Store
+Thumbs.db
