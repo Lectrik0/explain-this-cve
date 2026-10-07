@@ -4,6 +4,8 @@ Type a CVE ID and get a one-page brief. There is a Manager view (what is this, s
 
 It is a portfolio project. The page is plain HTML, CSS and JavaScript. One serverless function on Vercel does all the work.
 
+Live: https://explain-this-cve.vercel.app
+
 ## The problem
 
 A CVE record is written for specialists. A manager who has to decide "do we drop everything today?" gets a score, a vector string and 100 reference links. An analyst gets the same data but has to open three sites to answer the question that matters: is anyone actually exploiting this?
