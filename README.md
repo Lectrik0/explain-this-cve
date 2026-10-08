@@ -9,11 +9,15 @@ It is a static page and one serverless function. No accounts, no database, no bu
 
 ![The Manager view for Log4Shell (CVE-2021-44228)](docs/screenshot.jpg)
 
-## The problem
+<details open>
+<summary><h2>The problem</h2></summary>
 
 A CVE record is written for specialists. A manager who has to decide "do we drop everything today?" gets a score, a vector string and 100 reference links. An analyst gets the same data but has to open three sites to answer the question that matters: is anyone actually exploiting this? This page combines three free public sources and answers it in one place.
 
-## What you get
+</details>
+
+<details open>
+<summary><h2>What you get</h2></summary>
 
 Seven chapters, always in this order:
 
@@ -27,7 +31,10 @@ Seven chapters, always in this order:
 
 Every brief says "Always verify with the official vendor advisory."
 
-## How it works
+</details>
+
+<details>
+<summary><h2>How it works</h2></summary>
 
 ```
  Browser (public/)                Vercel function (api/cve.js)             Public data
@@ -45,7 +52,10 @@ Every brief says "Always verify with the official vendor advisory."
 
 NVD is required. If NVD is down, the page shows the last good answer for that CVE as a labelled saved copy when one exists, and an error when it does not. If CISA, EPSS or the AI model fails, the page still works and says what is missing. "Could not check CISA's list" is shown as unknown, never as "not exploited". The study guide [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md) walks through every file and the full request flow.
 
-## Security
+</details>
+
+<details>
+<summary><h2>Security</h2></summary>
 
 The data comes from public databases, but anyone can influence some of it, and an AI model reads it. All of it is treated as hostile.
 
@@ -64,9 +74,17 @@ The data comes from public databases, but anyone can influence some of it, and a
 | Reporting | `/.well-known/security.txt` (RFC 9116) and `SECURITY.md` say how to report a problem, through GitHub's private reporting. |
 | No third parties | Fonts are self-hosted (SIL OFL). The page makes no request to any other domain. |
 
-**Tested:** There are more than 140 tests, run by GitHub Actions on every push, on saved real API responses, so they run offline. The XSS drill runs the real `app.js` against an API response with an `<img onerror>` or `<script>` payload in every field, inside a DOM stand-in that throws on any HTML write, and checks that no unexpected element, attribute, link or class appears. I confirmed the drill works by running it against two deliberately broken copies of `app.js`: both fail. On the live site I checked the headers, that server files and `.env.local` return 404, and that rapid requests get a 429. While testing the real model I saw it turn the range ">= 2.0.1 and < 2.3.1" into "2.0.1 to 2.3.0" and invent "2.14.9". The version check caught that.
+</details>
 
-**Known limitations:**
+<details>
+<summary><h2>Tested</h2></summary>
+
+There are more than 140 tests, run by GitHub Actions on every push, on saved real API responses, so they run offline. The XSS drill runs the real `app.js` against an API response with an `<img onerror>` or `<script>` payload in every field, inside a DOM stand-in that throws on any HTML write, and checks that no unexpected element, attribute, link or class appears. I confirmed the drill works by running it against two deliberately broken copies of `app.js`: both fail. On the live site I checked the headers, that server files and `.env.local` return 404, and that rapid requests get a 429. While testing the real model I saw it turn the range ">= 2.0.1 and < 2.3.1" into "2.0.1 to 2.3.0" and invent "2.14.9". The version check caught that.
+
+</details>
+
+<details>
+<summary><h2>Known limitations</h2></summary>
 
 - The cache, the saved copies and the rate limiter live in the memory of one function instance. Vercel creates and recycles instances, and `vercel dev` reloads the function on every request. They are best-effort: a saved copy may not exist when NVD fails, and the Vercel firewall rule is the limit to rely on.
 - The per-IP limit trusts the `x-real-ip` header, which is only trustworthy behind Vercel.
@@ -78,7 +96,10 @@ The data comes from public databases, but anyone can influence some of it, and a
 - CISA's triage answers (SSVC) exist only for CVEs that CISA has assessed. When they are missing, the page says so. I show the three answers and not CISA's final decision, because that decision depends on facts about your own organisation.
 - Trusted Types is enforced in Chromium browsers. I tested one Chromium browser, in both themes, at desktop and phone widths. I did not test Safari or Firefox.
 
-## Run it
+</details>
+
+<details>
+<summary><h2>Run it</h2></summary>
 
 You need Node.js 24 and the Vercel CLI (`npm install -g vercel`). Nothing else.
 
@@ -102,15 +123,23 @@ The AI summary needs all three LLM variables, and changing provider means changi
 
 To deploy, import the repository in Vercel (framework "Other", no build command), add the four variables under Settings, Environment Variables, and add one firewall rate-limit rule for `/api/cve`. The firewall rule runs before the function and is the limit that holds when instances change.
 
-## Next
+</details>
+
+<details>
+<summary><h2>Next</h2></summary>
 
 - Nessus plugin IDs: show which Tenable Nessus plugins detect a CVE, so an analyst can go from a scanner finding to this brief and back. It needs a source for the CVE to plugin mapping, a new source module with its own failure handling, and a new chapter on the page.
 - A rate limit and cache in a shared store such as Vercel KV or Upstash, which removes the per-instance limits above.
 - More sources, such as GitHub security advisories and OSV.
 - Paste a list of CVE IDs from a scan export and get one combined brief.
 
-## Credits
+</details>
+
+<details>
+<summary><h2>Credits</h2></summary>
 
 Data from the [NVD API](https://nvd.nist.gov/) (this product uses data from the NVD API but is not endorsed or certified by the NVD), the [CISA Known Exploited Vulnerabilities catalog](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) and [FIRST EPSS](https://www.first.org/epss/). Fonts: Chakra Petch and Instrument Sans (SIL Open Font License, copies in `public/fonts`). The look comes from my [portfolio site](https://lectrik0.github.io).
+
+</details>
 
 Built with AI assistance; I designed the features and security requirements and reviewed and tested all code.
