@@ -154,8 +154,11 @@
     const nvdLink = safeHttpUrl(d.nvdUrl);
     if (nvdLink && new URL(nvdLink).hostname === 'nvd.nist.gov') meta.append(externalLink(nvdLink, 'View on NVD'));
     const top = el('div', { class: 'panel-head head' }, el('span', { class: 'chap', text: 'Chapter 1' }), el('span', { class: 'cve-id', text: str(d.id, 30) }));
+    const stale = d.sources && d.sources.nvd === 'stale';
+    const saved = typeof d.generatedAt === 'string' ? d.generatedAt.slice(0, 16).replace('T', ' ') : '';
     return panel(6, 'h-title',
       top,
+      stale ? el('p', { class: 'verify', text: `NVD is not responding right now, so this is a saved copy${saved ? ` from ${saved} UTC` : ''}. Check again shortly for fresh data.` }) : null,
       el('h2', { class: 'brief-title', text: str(d.title, 200), attrs: { id: 'h-title' } }),
       d.titleSource === 'products' ? note('This CVE has no official title; the title above is built from the affected product.') : null,
       meta);
@@ -393,7 +396,7 @@
     const generated = typeof d.generatedAt === 'string' ? d.generatedAt.slice(0, 16).replace('T', ' ') : '';
     const mark = (name, status, good) => el('li', { class: good ? 'good' : 'bad', text: `${good ? '✓' : '!'} ${name}: ${status}` });
     const list = el('ul', { class: 'source-status' },
-      mark('NVD', ok(s.nvd) ? 'ok' : 'problem', ok(s.nvd)),
+      mark('NVD', ok(s.nvd) ? 'ok' : s.nvd === 'stale' ? 'saved copy (not responding)' : 'problem', ok(s.nvd)),
       mark('CISA KEV', ok(s.kev) ? 'ok' : 'unavailable', ok(s.kev)),
       mark('EPSS', ok(s.epss) ? 'ok' : s.epss === 'not_scored' ? 'not scored yet' : 'unavailable', ok(s.epss) || s.epss === 'not_scored'),
       mark('Summary', s.summary === 'ai' ? 'AI' : s.summary === 'template' ? 'template' : 'none', s.summary === 'ai' || s.summary === 'template'));

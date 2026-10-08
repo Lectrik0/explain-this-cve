@@ -118,6 +118,35 @@ test('404: unknown CVE, and the "not found" answer is cached briefly', async () 
   assert.equal(fetchImpl.callsTo(HOSTS.nvd).length, 1);
 });
 
+test('when NVD fails, the last good answer is served, clearly marked as a saved copy', async () => {
+  const staleCache = new TtlCache();
+  const first = setup({ staleCache });
+  const good = await (await first.get('?id=CVE-2021-44228')).json();
+  assert.equal(good.sources.nvd, 'ok');
+
+  // New server instance (empty main cache) sharing the saved copies, with NVD now broken in different ways.
+  for (const nvd of [() => new Response('boom', { status: 500 }), () => new Response('', { status: 403 }), () => { const e = new Error('x'); e.name = 'TimeoutError'; throw e; }]) {
+    const second = setup({ staleCache, nvd });
+    const res = await second.get('?id=CVE-2021-44228');
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('cache-control'), 'no-store', 'a saved copy is never CDN-cached');
+    const body = await res.json();
+    assert.equal(body.sources.nvd, 'stale');
+    assert.equal(body.title, good.title);
+    assert.equal(body.generatedAt, good.generatedAt, 'it keeps the ORIGINAL time, so the page can say how old it is');
+  }
+});
+
+test('a saved copy is used only for that CVE, only on NVD trouble, and never hides "not found" or bad input', async () => {
+  const staleCache = new TtlCache();
+  await setup({ staleCache }).get('?id=CVE-2021-44228');
+  const broken = setup({ staleCache, nvd: () => new Response('boom', { status: 500 }) });
+  assert.equal((await broken.get('?id=CVE-2017-0144')).status, 502, 'no saved copy for another CVE: honest error');
+  const missing = setup({ staleCache, nvd: () => jsonResponse(fixture('nvd-not-found.json')) });
+  assert.equal((await missing.get('?id=CVE-2021-44228')).status, 404, 'NVD says it does not exist: believe NVD');
+  assert.equal((await broken.get('?id=nonsense')).status, 400);
+});
+
 test('NVD failures map to clean 502/503 responses and are NOT cached', async () => {
   const timeout = () => { const e = new Error('x'); e.name = 'TimeoutError'; throw e; };
   const cases = [

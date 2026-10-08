@@ -43,6 +43,21 @@ test('CSP: deny by default, scripts and styles only from this site, no unsafe-* 
   assert.ok(!/unsafe-inline|unsafe-eval|unsafe-hashes|\*|https?:|data:|blob:/.test(everything), 'no wildcard, remote, data: or unsafe sources');
 });
 
+test('static assets are cached sensibly: fonts for a year, code and styles briefly with background refresh', () => {
+  const rules = Object.fromEntries(vercel.headers.map((h) => [h.source, Object.fromEntries(h.headers.map((x) => [x.key, x.value]))]));
+  assert.match(rules['/fonts/(.*)']['Cache-Control'], /max-age=31536000.*immutable/);
+  const code = rules['/(styles.css|app.js|theme.js|favicon.svg)']['Cache-Control'];
+  assert.match(code, /max-age=300/);
+  assert.ok(!/immutable/.test(code), 'unversioned files must not be immutable');
+});
+
+test('the two above-the-fold fonts are preloaded from this site', () => {
+  const html = read('public/index.html');
+  const preloads = [...html.matchAll(/<link rel="preload" href="([^"]+)" as="font" type="font\/woff2" crossorigin>/g)].map((m) => m[1]);
+  assert.equal(preloads.length, 2);
+  for (const href of preloads) assert.ok(href.startsWith('/fonts/') && existsSync(join(ROOT, 'public', href)));
+});
+
 test('the serverless function has a maximum duration', () => {
   assert.ok(vercel.functions['api/cve.js'].maxDuration <= 60);
 });

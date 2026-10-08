@@ -65,7 +65,7 @@ Take a visitor who types `cve-2021-44228` and presses Explain.
 7. Cache check. If a finished answer for this ID is in memory, it is returned now.
 8. If another request for the same ID is already running, this one waits for its result instead of starting a second lookup. Otherwise it passes the second, tighter limit (6 uncached lookups per minute per client).
 9. The shared NVD budget is checked (4 requests per 30 seconds without an NVD key, 45 with one). If it is used up, the answer is a "busy" 429.
-10. NVD, the KEV loader and EPSS are called in parallel, each with its own timeout. NVD is required. If NVD fails, the visitor gets a 502 or 503 with a fixed message.
+10. NVD, the KEV loader and EPSS are called in parallel, each with its own timeout. NVD is required. If NVD fails, the visitor gets a 502 or 503 with a fixed message, unless this instance still holds the last good answer for that CVE (kept for 24 hours). Then that saved copy is returned, marked `stale`, with its original timestamp, and the page says so.
 11. `normalizeNvd()` checks the shape, makes sure the record is for the ID that was asked for, and builds the small fixed structure. An empty answer from NVD means "not found" (404, cached for 60 seconds).
 12. CISA's triage answers (SSVC) are read from the NVD record. Each of the three answers must be an exact allowed word, or the CVE counts as "not assessed". The KEV and EPSS results are folded in. If either failed, the status is "unknown" or "unavailable", never "not exploited". NVD's own copy of the CISA fields is used as a fallback for KEV.
 13. The title is the CISA name if there is one, otherwise it is built from the vendor and product.
