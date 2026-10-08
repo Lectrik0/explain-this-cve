@@ -43,7 +43,7 @@ Every brief says "Always verify with the official vendor advisory."
                                   +--------------------------------+
 ```
 
-NVD is required. If CISA, EPSS or the AI model fails, the page still works and says what is missing. "Could not check CISA's list" is shown as unknown, never as "not exploited". The study guide [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md) walks through every file and the full request flow.
+NVD is required. If NVD is down, the page shows the last good answer for that CVE as a labelled saved copy when one exists, and an error when it does not. If CISA, EPSS or the AI model fails, the page still works and says what is missing. "Could not check CISA's list" is shown as unknown, never as "not exploited". The study guide [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md) walks through every file and the full request flow.
 
 ## Security
 
@@ -68,13 +68,14 @@ The data comes from public databases, but anyone can influence some of it, and a
 
 **Known limitations:**
 
-- The cache and the rate limiter live in the memory of one function instance. Vercel creates and recycles instances, and `vercel dev` reloads the function on every request. They are best-effort, and the Vercel firewall rule is the limit to rely on.
+- The cache, the saved copies and the rate limiter live in the memory of one function instance. Vercel creates and recycles instances, and `vercel dev` reloads the function on every request. They are best-effort: a saved copy may not exist when NVD fails, and the Vercel firewall rule is the limit to rely on.
 - The per-IP limit trusts the `x-real-ip` header, which is only trustworthy behind Vercel.
 - NVD's quota is shared by all visitors. Several clients together can use it up, and the page then shows a "busy" message.
 - Groq's free tier allowed about 8,000 tokens a minute for this model in October 2026. A burst of new lookups falls back to the template summary.
 - A persuaded AI model can still write a misleading sentence that has no link, version or domain in it. The checks cannot catch an opinion, which is why severity, KEV and EPSS are shown separately from structured data.
 - NVD data is sometimes late or incomplete, and the product list is grouped and ordered by a heuristic, so it can include third-party products that embed the affected library.
 - KEV lists confirmed exploitation only, and EPSS is a probability, not a verdict.
+- CISA's triage answers (SSVC) exist only for CVEs that CISA has assessed. When they are missing, the page says so. I show the three answers and not CISA's final decision, because that decision depends on facts about your own organisation.
 - Trusted Types is enforced in Chromium browsers. I tested one Chromium browser, in both themes, at desktop and phone widths. I did not test Safari or Firefox.
 
 ## Run it
