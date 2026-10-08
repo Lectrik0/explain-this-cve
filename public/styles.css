@@ -100,6 +100,9 @@ svg * { transition: fill .5s, stroke .5s; }
 .nav { position: sticky; top: 0; z-index: 30; background: var(--bg); border-bottom: var(--frame) solid var(--line); transition: background-color .5s; }
 .nav-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 10px; }
 .brand { font: 700 1.2rem/1 var(--f-display); text-decoration: none; color: var(--text); letter-spacing: .02em; }
+.nav-actions { display: flex; align-items: center; gap: 18px; }
+.nav-link { font: 600 1rem/1 var(--f-display); text-decoration: none; color: var(--muted); }
+.nav-link:hover { color: var(--text); }
 .toggle {
   display: inline-flex; align-items: center; gap: 8px; border: 2px solid var(--line); background: var(--panel); color: var(--text);
   font: 600 .95rem/1 var(--f-display); padding: 7px 12px; cursor: pointer;
@@ -267,6 +270,7 @@ button { font: inherit; }
 .end p { position: relative; max-width: 62ch; }
 .disclaimer { font-size: 1.05rem; }
 .fine { color: var(--muted); font: 600 .95rem/1.2 var(--f-display); }
+.byline { font: 600 1.05rem/1.3 var(--f-display); }
 .site-footer { padding-block: 28px 48px; color: var(--muted); font-size: .9rem; display: grid; gap: 8px; }
 
 /* ---------------------------------------------------------------- small screens */
@@ -274,6 +278,7 @@ button { font: inherit; }
   .span-3 { grid-column: span 6; }
 }
 @media (max-width: 520px) {
+  .nav-link { display: none; }
   .hero { --cut: 28px; }
   .end { --cut: 28px; }
   .input-row { flex-direction: column; }
@@ -313,7 +318,7 @@ button { font: inherit; }
 @media print {
   :root, :root[data-theme] { --bg: #fff; --panel: #fff; --line: #000; --text: #000; --muted: #333; --teal-text: #000; --purple: #000; color-scheme: light; }
   body { background: #fff; font-size: 11pt; }
-  .skip-link, .nav, .search, .status, .notice, .toolbar, .scene, .lede, .eyebrow, .end, .site-footer { display: none !important; }
+  .skip-link, .nav, .search, .end a, .status, .notice, .toolbar, .scene, .lede, .eyebrow, .end, .site-footer { display: none !important; }
   .hero { clip-path: none; padding: 0; background: none; } .hero .in { background: none; clip-path: none; }
   .hero h1 { font-size: 1.6rem; text-shadow: none; }
   .frame, .frame > .in { clip-path: none !important; }

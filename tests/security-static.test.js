@@ -91,6 +91,17 @@ test('index.html loads nothing from other sites (only plain links to documentati
   }
 });
 
+test('every outbound link in index.html is https and carries rel="noopener noreferrer"', () => {
+  const html = read('public/index.html');
+  const links = [...html.matchAll(/<a\b[^>]*\bhref="(https?:[^"]+)"[^>]*>/gi)];
+  assert.ok(links.length >= 4, 'the portfolio and data-source links exist');
+  for (const [tag, href] of links) {
+    assert.ok(href.startsWith('https://'), `${href} must be https`);
+    assert.match(tag, /rel="[^"]*noopener[^"]*noreferrer[^"]*"/, `${href} needs rel="noopener noreferrer"`);
+  }
+  assert.ok(links.some(([, href]) => href === 'https://lectrik0.github.io'));
+});
+
 test('app.js and theme.js never use dangerous DOM sinks', () => {
   for (const file of ['public/app.js', 'public/theme.js']) {
     const code = read(file).replace(/\/\/.*$/gm, ''); // ignore comments
