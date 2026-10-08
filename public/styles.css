@@ -100,9 +100,8 @@ svg * { transition: fill .5s, stroke .5s; }
 .nav { position: sticky; top: 0; z-index: 30; background: var(--bg); border-bottom: var(--frame) solid var(--line); transition: background-color .5s; }
 .nav-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 10px; }
 .brand { font: 700 1.2rem/1 var(--f-display); text-decoration: none; color: var(--text); letter-spacing: .02em; }
-.nav-actions { display: flex; align-items: center; gap: 18px; }
-.nav-link { font: 600 1rem/1 var(--f-display); text-decoration: none; color: var(--muted); }
-.nav-link:hover { color: var(--text); }
+.nav-actions { display: flex; align-items: center; gap: 12px; }
+.btn.small { padding: 8px 14px 7px; min-height: 0; font-size: .95rem; }
 .toggle {
   display: inline-flex; align-items: center; gap: 8px; border: 2px solid var(--line); background: var(--panel); color: var(--text);
   font: 600 .95rem/1 var(--f-display); padding: 7px 12px; cursor: pointer;

@@ -508,9 +508,15 @@
     return darkQuery.matches ? 'dark' : 'light';
   }
 
+  // Same icons and wording as the portfolio site: a moon (label "Night") by day, a sun (label "Day") by night.
+  const MOON = 'M6 .3a7.7 7.7 0 109.7 9.7A6.2 6.2 0 016 .3z';
+  const SUN = 'M8 4a4 4 0 100 8 4 4 0 000-8zM7 0h2v2.5H7zM7 13.5h2V16H7zM0 7h2.5v2H0zM13.5 7H16v2h-2.5zM2.1 3.5l1.4-1.4 1.8 1.8-1.4 1.4zM10.7 12.1l1.4-1.4 1.8 1.8-1.4 1.4zM2.1 12.5l1.8-1.8 1.4 1.4-1.8 1.8zM10.7 3.9l1.8-1.8 1.4 1.4-1.8 1.8z';
+  const themeIcon = $('theme-icon');
+
   function paintThemeButton() {
     const dark = effectiveTheme() === 'dark';
-    themeLabel.textContent = dark ? 'Day mode' : 'Night mode';
+    themeLabel.textContent = dark ? 'Day' : 'Night';
+    themeIcon.setAttribute('d', dark ? SUN : MOON);
     themeButton.setAttribute('aria-label', dark ? 'Switch to day mode' : 'Switch to night mode');
   }
 
