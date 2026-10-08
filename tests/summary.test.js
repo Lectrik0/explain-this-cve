@@ -33,6 +33,15 @@ test('template: Log4Shell explains how it is exploited, the impact, KEV and rans
   for (const v of Object.values(t)) assert.ok(v.length > 10 && v.length <= 600 && !/undefined|null|\[object/.test(v), v);
 });
 
+test('SSVC answers appear in the template worry text and in the AI facts, and are absent when not assessed', () => {
+  const ctx = contextFor('CVE-2021-44228');
+  assert.match(templateSummary(ctx).worry, /attacks can be automated.*total control/);
+  assert.deepEqual(buildFacts(ctx).cisa_ssvc_triage, { exploitation: 'active', attacks_can_be_automated: 'yes', technical_impact: 'total' });
+  const none = contextFor('CVE-2021-44228', { mutate: (c) => { delete c.metrics.ssvcV203; } });
+  assert.doesNotMatch(templateSummary(none).worry, /automated|total control/);
+  assert.equal(buildFacts(none).cisa_ssvc_triage, 'not assessed');
+});
+
 test('template: not on KEV, high vs low EPSS, and unknown data are worded differently', () => {
   const base = { mutate: noKev, kev: { ok: true, entry: null } };
   const low = templateSummary(contextFor('CVE-2021-44228', { ...base, epss: { ok: true, value: { status: 'ok', score: 0.004, percentile: 0.5, date: '2026-10-06' } } }));

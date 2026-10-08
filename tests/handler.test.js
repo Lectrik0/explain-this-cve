@@ -66,6 +66,7 @@ test('200: full brief for a known exploited CVE, with the expected contract and 
   assert.equal(body.exploitation.kev.ransomware, 'Known');
   assert.equal(body.exploitation.epss.status, 'ok');
   assert.ok(body.exploitation.epss.score > 0.9);
+  assert.deepEqual(body.exploitation.ssvc, { status: 'assessed', exploitation: 'active', automatable: 'yes', technicalImpact: 'total', assessed: '2025-02-04' });
   assert.ok(body.fix.advisories.length > 0);
   assert.ok(body.fix.requiredAction);
   assert.deepEqual(body.sources, { nvd: 'ok', kev: 'ok', epss: 'ok', summary: 'template' });
@@ -169,6 +170,15 @@ test('KEV feed healthy and CVE absent from it: "not_listed"; EPSS has no score y
   assert.equal(body.sources.epss, 'not_scored');
   assert.equal(res.headers.get('cache-control'), 'public, max-age=60, s-maxage=600', 'not being scored is a normal state, not a failure');
   assert.equal(body.titleSource, 'products', 'no CISA name: title is built from vendor + product');
+});
+
+test('a CVE CISA has not triaged is reported as "not_assessed" (and is not treated as a failure)', async () => {
+  const raw = nvdRecordWith('CVE-2099-0006', { stripKev: true });
+  delete raw.vulnerabilities[0].cve.metrics.ssvcV203;
+  const { get } = setup({ nvd: () => jsonResponse(raw), epss: () => jsonResponse(fixture('epss-none.json')) });
+  const res = await get('?id=CVE-2099-0006');
+  assert.deepEqual((await res.json()).exploitation.ssvc, { status: 'not_assessed' });
+  assert.equal(res.headers.get('cache-control'), 'public, max-age=60, s-maxage=600');
 });
 
 test('EPSS down: the page still works and reports it', async () => {

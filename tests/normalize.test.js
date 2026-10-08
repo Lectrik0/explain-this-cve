@@ -30,6 +30,30 @@ test('Dual-score CVE: NVD v3.1 (7.5) is the main score, the vendor v4.0 (8.7) is
   assert.ok(others.some((o) => o.version === '4.0' && o.score === 8.7 && o.provider === 'Other'));
 });
 
+test('CISA triage (SSVC) is read from the real records', () => {
+  assert.deepEqual(normalizeNvd(fixture('nvd-log4shell.json'), 'CVE-2021-44228').ssvc, { exploitation: 'active', automatable: 'yes', technicalImpact: 'total', assessed: '2025-02-04' });
+  const recent = normalizeNvd(fixture('nvd-recent-dual-score.json'), 'CVE-2026-88779').ssvc;
+  assert.deepEqual([recent.exploitation, recent.automatable, recent.technicalImpact], ['active', 'yes', 'partial']);
+});
+
+test('SSVC: anything but the exact allowed words, or a non-CISA role, or a missing answer, means "not assessed"', () => {
+  const withSsvc = (data) => ({ vulnerabilities: [{ cve: { id: 'CVE-2099-0005', metrics: { ssvcV203: [{ ssvcData: data }] } } }] });
+  const good = { role: 'CISA Coordinator', timestamp: '2025-02-04T14:25:34.416117Z', options: [{ exploitation: 'poc' }, { automatable: 'no' }, { technicalImpact: 'partial' }] };
+  assert.equal(normalizeNvd(withSsvc(good), 'CVE-2099-0005').ssvc.exploitation, 'poc');
+  const bad = [
+    { ...good, role: 'Someone Else' },
+    { ...good, options: [{ exploitation: 'poc' }, { automatable: 'no' }] },
+    { ...good, options: [{ exploitation: '<img src=x onerror=alert(1)>' }, { automatable: 'no' }, { technicalImpact: 'partial' }] },
+    { ...good, options: [{ exploitation: 'ACTIVE' }, { automatable: 'maybe' }, { technicalImpact: 'total' }] },
+    { ...good, options: [{ exploitation: ['active'] }, { automatable: 'yes' }, { technicalImpact: 'total' }] },
+    { ...good, options: 'nope' },
+    { role: 'CISA Coordinator' },
+    null,
+  ];
+  for (const data of bad) assert.equal(normalizeNvd(withSsvc(data), 'CVE-2099-0005').ssvc, null, JSON.stringify(data)?.slice(0, 70));
+  assert.equal(normalizeNvd(withSsvc({ ...good, timestamp: '<script>' }), 'CVE-2099-0005').ssvc.assessed, null, 'a bad date is dropped but the answers are kept');
+});
+
 test('Log4Shell: weaknesses carry names from our own table', () => {
   const w = normalizeNvd(fixture('nvd-log4shell.json'), 'CVE-2021-44228').weaknesses;
   assert.ok(w.some((x) => x.id === 'CWE-502' && x.name === 'Deserialization of Untrusted Data'));

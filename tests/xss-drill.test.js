@@ -95,6 +95,7 @@ function hostileBody() {
     exploitation: {
       kev: { status: 'listed', source: IMG, name: IMG, dateAdded: SCRIPT, dueDate: IMG, requiredAction: SCRIPT, ransomware: IMG },
       epss: { status: 'ok', score: 'not a number', percentile: IMG, date: SCRIPT },
+      ssvc: { status: 'assessed', exploitation: IMG, automatable: 'label', technicalImpact: { toString: () => SCRIPT }, assessed: SCRIPT },
     },
     affected: {
       source: IMG, total: 'many', moreProducts: SCRIPT,

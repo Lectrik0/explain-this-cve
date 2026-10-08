@@ -248,9 +248,43 @@
     return [label, note('EPSS data is unavailable right now.')];
   }
 
+  // CISA's triage (SSVC). The server only sends one of a few exact words; the sentences below are ours.
+  const SSVC_TEXT = {
+    exploitation: {
+      label: 'Exploitation',
+      none: 'No sign of exploitation or a public exploit.',
+      poc: 'A public proof-of-concept exploit exists.',
+      active: 'It is being exploited in real attacks.',
+    },
+    automatable: {
+      label: 'Can attacks be automated?',
+      yes: 'Yes. An attacker can run it at scale with a script, with no manual work per target.',
+      no: 'No. Each target needs manual effort.',
+    },
+    technicalImpact: {
+      label: 'Technical impact',
+      partial: 'Partial. The attacker gets limited control or access.',
+      total: 'Total. The attacker gets full control of the affected software.',
+    },
+  };
+
+  function renderSsvc(ssvc) {
+    const label = el('p', { class: 'label', text: "CISA's triage (SSVC)" });
+    if (!ssvc || ssvc.status !== 'assessed') return [label, note('CISA has not published a triage assessment for this CVE.')];
+    const rows = [];
+    for (const [field, table] of Object.entries(SSVC_TEXT)) {
+      const answer = ssvc[field];
+      rows.push([table.label, typeof answer === 'string' && Object.hasOwn(table, answer) && answer !== 'label' ? table[answer] : 'Not available']);
+    }
+    const parts = [label, definitionList(rows)];
+    const assessed = formatDate(ssvc.assessed);
+    if (isAnalyst() && assessed) parts.push(note(`Assessed by CISA on ${assessed}.`));
+    return parts;
+  }
+
   function renderExploitation(d) {
     const e = d.exploitation || {};
-    return chapter(3, 'Exploitation status', 'exploitation', 3, ...renderKev(e.kev), el('hr'), ...renderEpss(e.epss));
+    return chapter(3, 'Exploitation status', 'exploitation', 3, ...renderKev(e.kev), el('hr'), ...renderEpss(e.epss), el('hr'), ...renderSsvc(e.ssvc));
   }
 
   // ------------------------------------------------------------------ chapter 4: summary
