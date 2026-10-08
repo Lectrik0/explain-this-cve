@@ -1,5 +1,7 @@
 # Explain This CVE
 
+[![tests](https://github.com/Lectrik0/explain-this-cve/actions/workflows/tests.yml/badge.svg)](https://github.com/Lectrik0/explain-this-cve/actions/workflows/tests.yml)
+
 A one-page brief for any **CVE**: how severe it is, whether attackers are using it, which products are affected and what to do. There is a Manager view and an Analyst view.
 Live at https://explain-this-cve.vercel.app
 
@@ -17,7 +19,7 @@ Seven chapters, always in this order:
 
 1. CVE ID, title and published date
 2. Severity: the CVSS score with a colour badge, and the level written as a word
-3. Exploitation status: CISA Known Exploited Vulnerabilities (KEV) and the EPSS probability
+3. Exploitation status: CISA Known Exploited Vulnerabilities (KEV), the EPSS probability, and CISA's triage answers (SSVC: is it exploited, can attacks be automated, how much control does the attacker get)
 4. Plain-language summary, written by an AI model when a key is set and by fixed rules otherwise
 5. Affected products and versions
 6. Fix and mitigation: what CISA requires, first unaffected versions, patches and advisories
@@ -57,10 +59,12 @@ The data comes from public databases, but anyone can influence some of it, and a
 | Prompt injection | The model gets only public facts, no tools and no secrets. Facts go in as escaped JSON inside `<facts>` tags. The answer must be a three-field JSON object, normalised and rejected if it has a link, tag, backtick, or any version number or domain-like name that is not in the facts. A rejected answer becomes the template summary. |
 | Rate limiting and caching | 20 requests a minute per client, 6 uncached lookups a minute per client, and a shared budget just under NVD's own limit. Answers are cached for an hour (two minutes if a source failed). Concurrent requests for one CVE share a single lookup. IPv6 clients are limited per /64. |
 | Failing honestly | KEV and EPSS outages show as "unknown" or "unavailable". A KEV feed with fewer than 100 entries is treated as broken, so an empty feed never reads as "nothing is exploited". |
-| Hostile upstream data | Every field is type-checked, every loop and size is capped, tags are allow-listed, and a record about a different CVE than the one asked for is refused. |
+| Hostile upstream data | Every field is type-checked, every loop and size is capped, tags are allow-listed, and a record about a different CVE than the one asked for is refused. The SSVC answers must be one of a few exact words, and the sentences shown for them are written in the page, not taken from the data. |
+| Supply chain and CI | No dependencies. Tests run on every push in GitHub Actions with a read-only token, no secrets, and both actions pinned to a full commit SHA. |
+| Reporting | `/.well-known/security.txt` (RFC 9116) and `SECURITY.md` say how to report a problem, through GitHub's private reporting. |
 | No third parties | Fonts are self-hosted (SIL OFL). The page makes no request to any other domain. |
 
-**Tested:** There are more than 140 tests on saved real API responses, so they run offline. The XSS drill runs the real `app.js` against an API response with an `<img onerror>` or `<script>` payload in every field, inside a DOM stand-in that throws on any HTML write, and checks that no unexpected element, attribute, link or class appears. I confirmed the drill works by running it against two deliberately broken copies of `app.js`: both fail. On the live site I checked the headers, that server files and `.env.local` return 404, and that rapid requests get a 429. While testing the real model I saw it turn the range ">= 2.0.1 and < 2.3.1" into "2.0.1 to 2.3.0" and invent "2.14.9". The version check caught that.
+**Tested:** There are more than 140 tests, run by GitHub Actions on every push, on saved real API responses, so they run offline. The XSS drill runs the real `app.js` against an API response with an `<img onerror>` or `<script>` payload in every field, inside a DOM stand-in that throws on any HTML write, and checks that no unexpected element, attribute, link or class appears. I confirmed the drill works by running it against two deliberately broken copies of `app.js`: both fail. On the live site I checked the headers, that server files and `.env.local` return 404, and that rapid requests get a 429. While testing the real model I saw it turn the range ">= 2.0.1 and < 2.3.1" into "2.0.1 to 2.3.0" and invent "2.14.9". The version check caught that.
 
 **Known limitations:**
 

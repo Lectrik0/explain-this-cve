@@ -47,6 +47,28 @@ test('the serverless function has a maximum duration', () => {
   assert.ok(vercel.functions['api/cve.js'].maxDuration <= 60);
 });
 
+test('security.txt follows RFC 9116: required fields, https contact, expiry in the future but within a year', () => {
+  const text = read('public/.well-known/security.txt');
+  const fields = Object.fromEntries(text.split(/\r?\n/).filter(Boolean).map((l) => l.split(/:\s+(.*)/s).slice(0, 2)));
+  assert.match(fields.Contact, /^(https:\/\/|mailto:)/);
+  assert.ok(fields.Canonical.startsWith('https://') && fields.Canonical.endsWith('/.well-known/security.txt'));
+  const expires = new Date(fields.Expires);
+  assert.ok(!Number.isNaN(expires.getTime()), 'Expires is an ISO date');
+  assert.ok(expires > new Date(), 'security.txt has not expired: renew the Expires date');
+  assert.ok(expires - new Date() < 366 * 24 * 3600 * 1000, 'RFC 9116 recommends less than a year');
+  assert.ok(existsSync(join(ROOT, 'SECURITY.md')));
+});
+
+test('the CI workflow is least-privilege and pins every action to a full commit SHA', () => {
+  const yml = read('.github/workflows/tests.yml');
+  assert.match(yml, /permissions:\s*\n\s+contents: read/);
+  assert.ok(!/pull_request_target|secrets\./.test(yml), 'no privileged triggers and no secrets');
+  const uses = [...yml.matchAll(/uses:\s*(\S+)/g)].map((m) => m[1]);
+  assert.ok(uses.length >= 2);
+  for (const u of uses) assert.match(u, /@[0-9a-f]{40}$/, `${u} must be pinned to a commit SHA`);
+  assert.match(yml, /persist-credentials: false/);
+});
+
 // ------------------------------------------------------------------ frontend files
 
 test('index.html has no inline scripts, inline styles or event-handler attributes', () => {

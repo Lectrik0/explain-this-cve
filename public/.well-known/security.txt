@@ -1,0 +1,5 @@
+Contact: https://github.com/Lectrik0/explain-this-cve/security/advisories/new
+Expires: 2027-10-01T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://explain-this-cve.vercel.app/.well-known/security.txt
+Policy: https://github.com/Lectrik0/explain-this-cve/blob/main/SECURITY.md

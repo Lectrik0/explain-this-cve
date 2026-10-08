@@ -48,6 +48,8 @@ The folder has three zones. `public/` is what browsers receive. `api/` and `lib/
 
 `scripts/dev.js` loads `.env.local` and starts the Vercel dev server. `scripts/live-check.js` runs one real lookup and prints a short report. Neither prints a key.
 
+`.github/workflows/tests.yml` runs the tests on every push, with a read-only token and both actions pinned to a commit SHA. `public/.well-known/security.txt` and `SECURITY.md` tell people how to report a vulnerability.
+
 `vercel.json` sets the security headers and the content security policy. `.env.example` lists the variable names with no values. `.gitignore` keeps real keys out of git.
 
 ## 2. The request flow, step by step
@@ -65,7 +67,7 @@ Take a visitor who types `cve-2021-44228` and presses Explain.
 9. The shared NVD budget is checked (4 requests per 30 seconds without an NVD key, 45 with one). If it is used up, the answer is a "busy" 429.
 10. NVD, the KEV loader and EPSS are called in parallel, each with its own timeout. NVD is required. If NVD fails, the visitor gets a 502 or 503 with a fixed message.
 11. `normalizeNvd()` checks the shape, makes sure the record is for the ID that was asked for, and builds the small fixed structure. An empty answer from NVD means "not found" (404, cached for 60 seconds).
-12. The KEV and EPSS results are folded in. If either failed, the status is "unknown" or "unavailable", never "not exploited". NVD's own copy of the CISA fields is used as a fallback for KEV.
+12. CISA's triage answers (SSVC) are read from the NVD record. Each of the three answers must be an exact allowed word, or the CVE counts as "not assessed". The KEV and EPSS results are folded in. If either failed, the status is "unknown" or "unavailable", never "not exploited". NVD's own copy of the CISA fields is used as a fallback for KEV.
 13. The title is the CISA name if there is one, otherwise it is built from the vendor and product.
 14. `summarize()` runs. With a key, the model gets the facts and must answer in a strict format. If anything is wrong or slow, the template summary is used. This step never throws.
 15. The result is turned into JSON and cached: one hour for a complete answer, two minutes if any source failed. Complete answers also get `Cache-Control` so Vercel's CDN can serve repeats. Degraded answers do not.
@@ -285,6 +287,12 @@ Prototype pollution: a JavaScript attack where a key such as `__proto__` in JSON
 Rate limiting: capping how many requests a client can make in a period, to protect shared resources from abuse and accidents.
 
 ReDoS: a regular expression that takes exponential time on crafted input. Avoided here by short anchored patterns and a length check first.
+
+SSVC (Stakeholder-Specific Vulnerability Categorization): CISA's way of triaging a vulnerability. CISA's analysts answer three questions per CVE: is it exploited, can an attacker automate it, and how much control does a successful attack give. NVD publishes those three answers. The final decision (Track, Attend, Act) needs facts about your own organisation, so this project shows the inputs and does not invent a verdict.
+
+SHA pinning: naming a GitHub Action by its exact commit ID instead of a version tag. Tags can be moved to different code, commit IDs cannot, so a hijacked action cannot silently change what your CI runs.
+
+security.txt: a small file at `/.well-known/security.txt` (standard RFC 9116) that tells researchers how to report a vulnerability.
 
 Serverless function: code that a cloud platform starts on demand. It may keep memory between requests while the instance is warm, and it may not.
 
