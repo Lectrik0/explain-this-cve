@@ -1,4 +1,4 @@
-# Explain This CVE
+<h1><img src="docs/banner.svg" alt="Explain This CVE" width="100%"></h1>
 
 [![tests](https://github.com/Lectrik0/explain-this-cve/actions/workflows/tests.yml/badge.svg)](https://github.com/Lectrik0/explain-this-cve/actions/workflows/tests.yml)
 
